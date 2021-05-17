@@ -1,17 +1,31 @@
-name: GitHub Actions Demo
+name: 'sfdx'
+
 on: [push]
+
 jobs:
-  Explore-GitHub-Actions:
+  build:
+
     runs-on: ubuntu-latest
+
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v2
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
+      - uses: actions/checkout@v2              
+      - name: Write the token into a file
+        run: 'echo ${{ secrets.DEVHUB_TOKEN}} > token.txt'
+      - name: Install Salesforce CLI
         run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+          wget https://developer.salesforce.com/media/salesforce-cli/sfdx-linux-amd64.tar.xz
+          mkdir sfdx-cli
+          tar xJf sfdx-linux-amd64.tar.xz -C sfdx-cli --strip-components 1
+          ./sfdx-cli/install
+      - name: Auth with the DevHub
+        run: 'sfdx force:auth:sfdxurl:store -f token.txt -a DevHub -d'
+      - name: Create scratch org
+        run: 'sfdx force:org:create -f config/project-scratch-def.json -a my-scratch'
+      - name: Push source
+        run: 'sfdx force:source:push -u my-scratch'
+      - name: List orgs
+        run: 'sfdx force:org:list'
+      - name: Run tests
+        run: 'sfdx force:apex:test:run -u my-scratch --resultformat human'
+      - name: Delete scratch org
+        run: 'sfdx force:org:delete -u my-scratch --noprompt'
